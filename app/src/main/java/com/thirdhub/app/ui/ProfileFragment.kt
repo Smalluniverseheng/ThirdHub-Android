@@ -1,8 +1,5 @@
 package com.thirdhub.app.ui
 
-import android.app.AlertDialog
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -23,8 +20,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import org.json.JSONObject
 
 class ProfileFragment : Fragment() {
 
@@ -43,7 +38,11 @@ class ProfileFragment : Fragment() {
             toast("已退出登录")
         }
         view.findViewById<Button>(R.id.btnRedeem).setOnClickListener { doRedeem(view) }
-        view.findViewById<Button>(R.id.btnCheckUpdate).setOnClickListener { checkUpdate() }
+        view.findViewById<Button>(R.id.btnCheckUpdate).setOnClickListener {
+            val act = activity ?: return@setOnClickListener
+            toast("正在检查更新…")
+            com.thirdhub.app.util.UpdateChecker.checkAndPrompt(act, true)
+        }
         view.findViewById<Button>(R.id.btnTheme).setOnClickListener { cycleTheme() }
         view.findViewById<TextView>(R.id.txtVersion).text =
             "ThirdHub Android v${BuildConfig.VERSION_NAME} · 与网页版数据库互通\n网页版：https://smalluniverseheng.github.io/ThirdHub/"
@@ -145,54 +144,7 @@ class ProfileFragment : Fragment() {
         }
     }
 
-    /* ---------- 更新 / 主题 ---------- */
-
-    private fun checkUpdate() {
-        toast("正在检查更新…")
-        scope.launch {
-            val result = withContext(Dispatchers.IO) {
-                try {
-                    val req = okhttp3.Request.Builder()
-                        .url("https://smalluniverseheng.github.io/ThirdHub/version.json?t=" + System.currentTimeMillis())
-                        .get().build()
-                    OkHttpClient().newCall(req).execute().use { resp ->
-                        if (!resp.isSuccessful) throw Exception("网络错误（${resp.code}）")
-                        JSONObject(resp.body?.string() ?: "{}")
-                    }
-                } catch (e: Exception) { e }
-            }
-            val ctx = context ?: return@launch
-            if (result is JSONObject) {
-                val latest = result.optString("version")
-                val content = result.optString("content")
-                if (cmpVer(latest, BuildConfig.VERSION_NAME) > 0) {
-                    AlertDialog.Builder(ctx)
-                        .setTitle("发现新版本 v$latest")
-                        .setMessage(content + "\n\n当前版本 v${BuildConfig.VERSION_NAME}。安卓版更新包请在仓库 Releases 下载；网页版打开即自动更新。")
-                        .setPositiveButton("去下载") { _, _ ->
-                            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Smalluniverseheng/ThirdHub-Android/releases")))
-                        }
-                        .setNegativeButton("稍后", null)
-                        .show()
-                } else {
-                    toast("当前已是最新版本（v${BuildConfig.VERSION_NAME}）")
-                }
-            } else {
-                toast("检查失败：" + (result as Exception).message)
-            }
-        }
-    }
-
-    private fun cmpVer(a: String, b: String): Int {
-        val pa = a.split(".").map { it.toIntOrNull() ?: 0 }
-        val pb = b.split(".").map { it.toIntOrNull() ?: 0 }
-        for (i in 0 until maxOf(pa.size, pb.size)) {
-            val x = pa.getOrElse(i) { 0 }
-            val y = pb.getOrElse(i) { 0 }
-            if (x != y) return x - y
-        }
-        return 0
-    }
+    /* ---------- 主题 ---------- */
 
     private fun cycleTheme() {
         val next = when (Prefs.themeMode) {
