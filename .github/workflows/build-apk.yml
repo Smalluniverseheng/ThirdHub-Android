@@ -30,11 +30,11 @@ jobs:
         run: chmod +x gradlew && ./gradlew assembleRelease --stacktrace
 
       - name: 重命名产物
-        run: cp app/build/outputs/apk/release/app-release.apk ThirdHub-Android-v1.2.apk
+        run: cp app/build/outputs/apk/release/app-release.apk ThirdHub-Android-v1.3.apk
 
       - name: 上传 APK 产物
         uses: actions/upload-artifact@v4
         with:
-          name: ThirdHub-Android-v1.2-apk
-          path: ThirdHub-Android-v1.2.apk
+          name: ThirdHub-Android-v1.3-apk
+          path: ThirdHub-Android-v1.3.apk
           retention-days: 90
