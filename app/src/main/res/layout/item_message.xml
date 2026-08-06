@@ -21,19 +21,51 @@
         android:visibility="gone"
         android:lineSpacingMultiplier="1.35" />
 
-    <TextView
-        android:id="@+id/bubbleAi"
+    <LinearLayout
+        android:id="@+id/aiRow"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="start"
-        android:layout_marginEnd="48dp"
-        android:background="@drawable/bg_bubble_ai"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="9dp"
-        android:paddingBottom="9dp"
-        android:textSize="15sp"
-        android:visibility="gone"
-        android:textIsSelectable="true"
-        android:lineSpacingMultiplier="1.35" />
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <FrameLayout
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/bg_avatar_brand">
+
+            <ImageView
+                android:id="@+id/aiBrandIcon"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/aiBrandLetter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:textColor="@color/th_text2"
+                android:text="AI" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/bubbleAi"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxWidth="290dp"
+            android:background="@drawable/bg_bubble_ai"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="9dp"
+            android:paddingBottom="9dp"
+            android:textColor="@color/th_text"
+            android:textSize="15sp"
+            android:textIsSelectable="true"
+            android:lineSpacingMultiplier="1.35" />
+    </LinearLayout>
 </LinearLayout>
