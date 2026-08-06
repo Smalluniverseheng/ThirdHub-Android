@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 与网页版 theme.css 完全一致的配色（深色） -->
+    <color name="th_bg">#0F1117</color>
+    <color name="th_card">#181B26</color>
+    <color name="th_input">#1F2331</color>
+    <color name="th_elevated">#232838</color>
+    <color name="th_text">#EEF0F6</color>
+    <color name="th_text2">#A8AEC2</color>
+    <color name="th_text3">#6B7186</color>
+    <color name="th_border">#12FFFFFF</color>
+
+    <color name="th_bubble_ai">#232838</color>
+</resources>
