@@ -28,7 +28,7 @@ object Prefs {
         set(v) = sp.edit().putString("user_email", v).apply()
 
     var themeMode: String
-        get() = sp.getString("theme_mode", "auto") ?: "auto"
+        get() = sp.getString("theme_mode", "dark") ?: "dark"
         set(v) = sp.edit().putString("theme_mode", v).apply()
 
     var aiVendor: String
@@ -45,9 +45,23 @@ object Prefs {
     fun aiModel(vendor: String): String = sp.getString("ai_model_$vendor", "") ?: ""
     fun setAiModel(vendor: String, model: String) = sp.edit().putString("ai_model_$vendor", model).apply()
 
+    /* AI 多会话：[{id,title,vendor,model,msgs:[{role,content}],updatedAt}] */
+    var aiSessions: String
+        get() = sp.getString("ai_sessions", "") ?: ""
+        set(v) = sp.edit().putString("ai_sessions", v).apply()
+
+    var aiCurrent: String
+        get() = sp.getString("ai_current", "") ?: ""
+        set(v) = sp.edit().putString("ai_current", v).apply()
+
+    /* 旧版单会话记录（仅用于迁移） */
     var aiHistory: String
         get() = sp.getString("ai_history", "[]") ?: "[]"
         set(v) = sp.edit().putString("ai_history", v).apply()
+
+    var downloadId: Long
+        get() = sp.getLong("download_id", 0L)
+        set(v) = sp.edit().putLong("download_id", v).apply()
 
     var readerFont: Float
         get() = sp.getFloat("reader_font", 17f)
