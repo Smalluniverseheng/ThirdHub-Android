@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- aiBeta .send-btn：靛紫渐变圆按钮 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <gradient android:startColor="#6366F1" android:endColor="#8B5CF6"
+        android:angle="45" android:type="linear" />
+</shape>
