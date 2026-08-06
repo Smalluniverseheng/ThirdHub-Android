@@ -4,7 +4,23 @@
         <item name="colorPrimary">@color/th_primary</item>
         <item name="colorOnPrimary">@color/white</item>
         <item name="colorSecondary">@color/th_primary</item>
+        <item name="android:colorBackground">@color/th_bg</item>
+        <item name="colorSurface">@color/th_card</item>
+        <item name="colorOnSurface">@color/th_text</item>
+        <item name="colorOnSurfaceVariant">@color/th_text2</item>
+        <item name="android:textColorPrimary">@color/th_text</item>
+        <item name="android:textColorSecondary">@color/th_text2</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">?attr/isLightTheme</item>
+        <item name="android:windowBackground">@color/th_bg</item>
+    </style>
+
+    <style name="Theme.ThirdHub.Splash" parent="Theme.ThirdHub">
+        <item name="android:windowNoTitle">true</item>
+    </style>
+
+    <!-- 底部导航选中 pill（与网页版 .tab.on .tab-ico 一致） -->
+    <style name="NavPill" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:color">@color/th_nav_pill</item>
     </style>
 </resources>
