@@ -2,11 +2,13 @@ package com.thirdhub.app.ui
 
 import android.app.AlertDialog
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -29,13 +31,27 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
+/* AI 对话页：aiBeta 顶栏 + OmniHub 欢迎区 + 左滑会话抽屉 */
 class AiFragment : Fragment() {
 
     private val scope = CoroutineScope(Dispatchers.Main)
     private var msgList: LinearLayout? = null
     private var msgScroll: ScrollView? = null
+    private var welcomeScroll: ScrollView? = null
     private var drawer: DrawerLayout? = null
     private var sending = false
+
+    /* 厂商一句话简介（OmniHub 式欢迎语） */
+    private val vendorDesc = mapOf(
+        "deepseek" to "DeepSeek 深度求索官方模型，推理与代码能力出色，性价比极高。",
+        "moonshot" to "Moonshot Kimi 官方模型，超长上下文，中文理解与写作能力一流。",
+        "zhipu" to "智谱 GLM 官方模型，清华系大模型，工具调用与多模态能力强。",
+        "aliyun" to "阿里百炼通义千问官方模型，全能均衡，企业级稳定服务。",
+        "openai" to "OpenAI 官方模型，GPT 系列，全球使用最广的大模型。",
+        "openrouter" to "OpenRouter 聚合网关，一个密钥访问全球数百个模型。",
+        "siliconflow" to "硅基流动聚合平台，国产开源模型高速推理，价格友好。",
+        "custom" to "自定义 OpenAI 兼容接口，可接入任意第三方服务。",
+    )
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         return inflater.inflate(R.layout.fragment_ai, container, false)
@@ -44,13 +60,13 @@ class AiFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         msgList = view.findViewById(R.id.msgList)
         msgScroll = view.findViewById(R.id.msgScroll)
+        welcomeScroll = view.findViewById(R.id.welcomeScroll)
         drawer = view.findViewById(R.id.aiDrawer)
 
-        // OmniHub 式：抽屉滑动时主内容随之变暗，松手自动吸附（DrawerLayout 原生跟手）
+        // OmniHub 式：抽屉跟手滑动，主内容随之变暗
         drawer?.setScrimColor(0x66000000)
         drawer?.addDrawerListener(object : DrawerLayout.SimpleDrawerListener() {
             override fun onDrawerSlide(drawerView: View, slideOffset: Float) {
-                // 主内容随手指位移轻微缩放+变暗，跟手
                 val content = drawer?.getChildAt(0) ?: return
                 content.alpha = 1f - slideOffset * 0.4f
             }
@@ -59,24 +75,170 @@ class AiFragment : Fragment() {
             }
         })
 
-        view.findViewById<Button>(R.id.btnSessions).setOnClickListener {
+        view.findViewById<ImageButton>(R.id.btnDrawer).setOnClickListener {
             drawer?.openDrawer(GravityCompat.START)
         }
-        view.findViewById<Button>(R.id.btnVendor).setOnClickListener { showVendorDialog() }
-        view.findViewById<Button>(R.id.btnModel).setOnClickListener { showModelDialog() }
-        view.findViewById<Button>(R.id.btnKey).setOnClickListener { showKeyDialog() }
-        view.findViewById<Button>(R.id.btnNewChat).setOnClickListener {
+        view.findViewById<View>(R.id.modelPill).setOnClickListener { showModelPicker() }
+        view.findViewById<ImageButton>(R.id.btnNewChatTop).setOnClickListener { newSession() }
+        view.findViewById<View>(R.id.btnNewChat).setOnClickListener {
             newSession()
             drawer?.closeDrawer(GravityCompat.START)
         }
-        view.findViewById<Button>(R.id.btnSend).setOnClickListener { send(view) }
+        view.findViewById<ImageButton>(R.id.btnPlus).setOnClickListener { showPlusPanel() }
+        view.findViewById<ImageButton>(R.id.btnSend).setOnClickListener { send(view) }
         view.findViewById<EditText>(R.id.inputMsg).setOnEditorActionListener { _, _, _ -> send(view); true }
+
+        // 今日推荐：点一下直接发问
+        for (id in listOf(R.id.sug1, R.id.sug2, R.id.sug3)) {
+            view.findViewById<TextView>(id).setOnClickListener { tv ->
+                val text = (tv as TextView).text.toString()
+                view.findViewById<EditText>(R.id.inputMsg).setText(text)
+                send(view)
+            }
+        }
 
         migrateLegacy()
         ensureSession()
-        refreshBar()
+        refreshUi()
         renderMessages()
         renderSessions()
+    }
+
+    /* ================= 品牌图标绑定 ================= */
+
+    private fun bindBrand(icon: ImageView, letter: TextView, vendorId: String) {
+        val res = BrandIcons.resFor(vendorId)
+        if (res != null) {
+            icon.setImageResource(res)
+            icon.visibility = View.VISIBLE
+            letter.visibility = View.GONE
+        } else {
+            icon.visibility = View.GONE
+            letter.visibility = View.VISIBLE
+            letter.text = BrandIcons.letterFor(vendorId)
+            letter.setTextColor(BrandIcons.colorFor(vendorId))
+        }
+    }
+
+    /* ================= 顶栏 + 欢迎区 ================= */
+
+    private fun refreshUi() {
+        val v = view ?: return
+        val vendor = AiApi.vendor(Prefs.aiVendor)
+        val model = AiApi.currentModel()
+
+        // 顶栏模型胶囊
+        v.findViewById<TextView>(R.id.pillLabel).text = model.ifEmpty { "选择模型" }
+        val pillIcon = v.findViewById<ImageView>(R.id.pillIcon)
+        val res = BrandIcons.resFor(vendor.id)
+        if (res != null) pillIcon.setImageResource(res)
+        else pillIcon.setImageResource(R.drawable.ic_brand_openai) // 占位不会用到（8 厂商中 6 有图标）
+
+        // 欢迎区
+        v.findViewById<TextView>(R.id.welcomeTitle).text = "你好，我是 " + model.ifEmpty { vendor.label }
+        v.findViewById<TextView>(R.id.welcomeDesc).text = vendorDesc[vendor.id] ?: ""
+        v.findViewById<TextView>(R.id.welcomeChip).text = "正在使用 " + model.ifEmpty { vendor.label } + " · 聊天"
+        bindBrand(v.findViewById(R.id.welcomeIcon), v.findViewById(R.id.welcomeLetter), vendor.id)
+    }
+
+    private fun syncWelcomeVisibility() {
+        val empty = currentMsgs().length() == 0
+        welcomeScroll?.visibility = if (empty) View.VISIBLE else View.GONE
+        msgScroll?.visibility = if (empty) View.GONE else View.VISIBLE
+    }
+
+    /* ================= 模型选择弹窗（aiBeta 下拉式） ================= */
+
+    private fun showModelPicker() {
+        val ctx = context ?: return
+        val dlgView = layoutInflater.inflate(R.layout.dialog_model_picker, null)
+        val list = dlgView.findViewById<LinearLayout>(R.id.pickerList)
+        val search = dlgView.findViewById<EditText>(R.id.pickerSearch)
+        val dlg = AlertDialog.Builder(ctx).setView(dlgView).create()
+        dlg.window?.setBackgroundDrawableResource(android.R.color.transparent)
+
+        fun render(filter: String) {
+            list.removeAllViews()
+            val kw = filter.trim().lowercase()
+            for (vendor in AiApi.vendors) {
+                val model = Prefs.aiModel(vendor.id).ifEmpty { vendor.defaultModel }
+                val hay = (vendor.label + " " + vendor.id + " " + model).lowercase()
+                if (kw.isNotEmpty() && !hay.contains(kw)) continue
+                val item = layoutInflater.inflate(R.layout.item_model_pick, list, false)
+                bindBrand(item.findViewById(R.id.pickIcon), item.findViewById(R.id.pickLetter), vendor.id)
+                item.findViewById<TextView>(R.id.pickTitle).text =
+                    (if (vendor.id == Prefs.aiVendor) "● " else "") + model.ifEmpty { vendor.label }
+                item.findViewById<TextView>(R.id.pickSub).text =
+                    vendor.label + if (model.isNotEmpty() && model != vendor.label) " · " + vendor.defaultModel else ""
+                if (Prefs.aiKey(vendor.id).isEmpty()) {
+                    item.findViewById<TextView>(R.id.pickKeyTag).visibility = View.VISIBLE
+                }
+                item.setOnClickListener {
+                    Prefs.aiVendor = vendor.id
+                    val arr = sessionsArr()
+                    val s = findSession(arr, currentId())
+                    if (s != null) {
+                        s.put("vendor", vendor.id)
+                        s.put("model", AiApi.currentModel())
+                        saveSessions(arr)
+                    }
+                    refreshUi()
+                    renderMessages()
+                    dlg.dismiss()
+                    if (Prefs.aiKey(vendor.id).isEmpty()) {
+                        toast("该厂商还没配置密钥，点输入框左侧 ＋ 设置")
+                    }
+                }
+                item.setOnLongClickListener {
+                    dlg.dismiss()
+                    Prefs.aiVendor = vendor.id
+                    showModelDialog()
+                    true
+                }
+                list.addView(item)
+            }
+            if (list.childCount == 0) {
+                val t = TextView(ctx)
+                t.text = "没有匹配的模型"
+                t.setTextColor(0xFF6B7186.toInt())
+                t.setPadding(20, 30, 20, 30)
+                list.addView(t)
+            }
+        }
+        render("")
+        search.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) { render(s?.toString() ?: "") }
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+        })
+        dlg.show()
+    }
+
+    /* ================= ＋ 功能面板 ================= */
+
+    private fun showPlusPanel() {
+        val ctx = context ?: return
+        val items = arrayOf("密钥设置", "手动输入模型", "在线拉取模型", "清空当前会话")
+        AlertDialog.Builder(ctx)
+            .setTitle("更多功能")
+            .setItems(items) { _, which ->
+                when (which) {
+                    0 -> showKeyDialog()
+                    1 -> showModelDialog()
+                    2 -> fetchModels(Prefs.aiVendor)
+                    3 -> {
+                        val arr = sessionsArr()
+                        val s = findSession(arr, currentId())
+                        if (s != null) {
+                            s.put("msgs", JSONArray())
+                            saveSessions(arr)
+                        }
+                        renderMessages()
+                        toast("已清空当前会话")
+                    }
+                }
+            }
+            .show()
     }
 
     /* ================= 多会话存储 ================= */
@@ -110,12 +272,10 @@ class AiFragment : Fragment() {
                 .put("msgs", JSONArray())
                 .put("updatedAt", System.currentTimeMillis())
             arr.put(cur)
-            // 按时间倒序
             arr = sortSessions(arr)
             saveSessions(arr)
             Prefs.aiCurrent = cur.optString("id")
         }
-        // 会话绑定当前厂商/模型
         cur.put("vendor", Prefs.aiVendor)
         cur.put("model", AiApi.currentModel())
         saveSessions(arr)
@@ -155,7 +315,7 @@ class AiFragment : Fragment() {
             val m = s.optString("model")
             if (m.isNotEmpty()) Prefs.setAiModel(Prefs.aiVendor, m)
         }
-        refreshBar()
+        refreshUi()
         renderMessages()
         renderSessions()
     }
@@ -173,7 +333,7 @@ class AiFragment : Fragment() {
             if (out.length() > 0) Prefs.aiCurrent = out.getJSONObject(0).optString("id")
         }
         ensureSession()
-        refreshBar()
+        refreshUi()
         renderMessages()
         renderSessions()
     }
@@ -193,8 +353,7 @@ class AiFragment : Fragment() {
                 .put("model", AiApi.currentModel())
                 .put("msgs", msgs)
                 .put("updatedAt", System.currentTimeMillis())
-            val arr = JSONArray().put(s)
-            saveSessions(arr)
+            saveSessions(JSONArray().put(s))
             Prefs.aiCurrent = s.optString("id")
             Prefs.aiHistory = "[]"
         } catch (_: Exception) {}
@@ -215,8 +374,7 @@ class AiFragment : Fragment() {
             val time = item.findViewById<TextView>(R.id.txtSessionTime)
             val isCur = s.optString("id") == currentId()
             title.text = (if (isCur) "● " else "") + s.optString("title", "会话")
-            val vid = s.optString("vendor", "")
-            time.text = AiApi.vendor(vid).label + " · " + fmt.format(Date(s.optLong("updatedAt")))
+            time.text = AiApi.vendor(s.optString("vendor", "")).label + " · " + fmt.format(Date(s.optLong("updatedAt")))
             item.setOnClickListener {
                 switchSession(s.optString("id"))
                 drawer?.closeDrawer(GravityCompat.START)
@@ -224,7 +382,7 @@ class AiFragment : Fragment() {
             item.setOnLongClickListener {
                 AlertDialog.Builder(requireContext())
                     .setTitle("删除会话")
-                    .setMessage("删除「${s.optString("title")}」？")
+                    .setMessage("删除「" + s.optString("title") + "」？")
                     .setPositiveButton("删除") { _, _ -> deleteSession(s.optString("id")) }
                     .setNegativeButton("取消", null)
                     .show()
@@ -234,38 +392,7 @@ class AiFragment : Fragment() {
         }
     }
 
-    /* ================= 设置弹窗 ================= */
-
-    private fun refreshBar() {
-        val v = view ?: return
-        val vendor = AiApi.vendor(Prefs.aiVendor)
-        v.findViewById<Button>(R.id.btnVendor).text = vendor.label.substring(0, minOf(4, vendor.label.length))
-        v.findViewById<Button>(R.id.btnModel).text = AiApi.currentModel().ifEmpty { "模型" }.let {
-            if (it.length > 10) it.substring(0, 10) + "…" else it
-        }
-    }
-
-    private fun showVendorDialog() {
-        val ctx = context ?: return
-        val names = AiApi.vendors.map { it.label }.toTypedArray()
-        val cur = AiApi.vendors.indexOfFirst { it.id == Prefs.aiVendor }
-        AlertDialog.Builder(ctx)
-            .setTitle("选择厂商")
-            .setSingleChoiceItems(names, cur) { d, which ->
-                Prefs.aiVendor = AiApi.vendors[which].id
-                val arr = sessionsArr()
-                val s = findSession(arr, currentId())
-                if (s != null) {
-                    s.put("vendor", Prefs.aiVendor)
-                    s.put("model", AiApi.currentModel())
-                    saveSessions(arr)
-                }
-                refreshBar()
-                renderMessages()
-                d.dismiss()
-            }
-            .show()
-    }
+    /* ================= 模型 / 密钥设置 ================= */
 
     private fun showModelDialog() {
         val ctx = context ?: return
@@ -279,7 +406,7 @@ class AiFragment : Fragment() {
             .setPositiveButton("保存") { _, _ ->
                 val m = input.text.toString().trim()
                 if (m.isNotEmpty()) Prefs.setAiModel(vendor.id, m)
-                refreshBar()
+                refreshUi()
             }
             .setNeutralButton("在线拉取") { _, _ -> fetchModels(vendor.id) }
             .setNegativeButton("取消", null)
@@ -301,7 +428,7 @@ class AiFragment : Fragment() {
                     .setTitle("选择模型（${models.size}）")
                     .setItems(models.toTypedArray()) { _, which ->
                         Prefs.setAiModel(vendorId, models[which])
-                        refreshBar()
+                        refreshUi()
                     }
                     .show()
             } else {
@@ -356,7 +483,6 @@ class AiFragment : Fragment() {
         val s = findSession(arr, currentId()) ?: return
         s.put("msgs", msgs)
         s.put("updatedAt", System.currentTimeMillis())
-        // 用首条用户消息做标题
         if (s.optString("title") == "新会话") {
             for (i in 0 until msgs.length()) {
                 val m = msgs.optJSONObject(i) ?: continue
@@ -382,6 +508,7 @@ class AiFragment : Fragment() {
                 "assistant" -> addBubble(m.optString("content"), false, vendor.id)
             }
         }
+        syncWelcomeVisibility()
         scrollBottom()
     }
 
@@ -393,11 +520,12 @@ class AiFragment : Fragment() {
 
         val vendor = AiApi.vendor(Prefs.aiVendor)
         if (Prefs.aiKey(vendor.id).isEmpty()) {
-            toast("请先点击「密钥」设置 API 密钥")
+            toast("请先点输入框左侧 ＋ 设置 API 密钥")
             return
         }
 
         input.setText("")
+        syncWelcomeVisibility()
         addBubble(text, true, vendor.id)
         val aiBubble = addBubble("", false, vendor.id)
         sending = true
@@ -443,22 +571,11 @@ class AiFragment : Fragment() {
         } else {
             aiRow.visibility = View.VISIBLE
             ai.text = text
-            // 官方品牌图标头像
-            val icon = item.findViewById<ImageView>(R.id.aiBrandIcon)
-            val letter = item.findViewById<TextView>(R.id.aiBrandLetter)
-            val res = BrandIcons.resFor(vendorId)
-            if (res != null) {
-                icon.setImageResource(res)
-                icon.visibility = View.VISIBLE
-                letter.visibility = View.GONE
-            } else {
-                icon.visibility = View.GONE
-                letter.visibility = View.VISIBLE
-                letter.text = BrandIcons.letterFor(vendorId)
-                letter.setTextColor(BrandIcons.colorFor(vendorId))
-            }
+            bindBrand(item.findViewById(R.id.aiBrandIcon), item.findViewById(R.id.aiBrandLetter), vendorId)
         }
         list.addView(item)
+        msgScroll?.visibility = View.VISIBLE
+        welcomeScroll?.visibility = View.GONE
         scrollBottom()
         return if (isUser) user else ai
     }
