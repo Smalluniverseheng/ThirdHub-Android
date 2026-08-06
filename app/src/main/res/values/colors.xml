@@ -1,13 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- 与网页版 theme.css 完全一致的配色（浅色） -->
     <color name="th_primary">#3B5BFD</color>
-    <color name="th_primary_dark">#2A46D9</color>
-    <color name="th_bg_dark">#FF101216</color>
-    <color name="th_card_dark">#FF1B1E24</color>
-    <color name="th_text_dark">#FFE8EAEF</color>
-    <color name="th_text2_dark">#FF9AA0AC</color>
+    <color name="th_primary_deep">#2A3FD0</color>
+    <color name="th_accent">#F5A623</color>
+    <color name="th_danger">#FF4D4F</color>
+
+    <color name="th_bg">#F4F5F9</color>
+    <color name="th_card">#FFFFFF</color>
+    <color name="th_input">#ECEEF4</color>
+    <color name="th_elevated">#FFFFFF</color>
+    <color name="th_text">#1C1F2A</color>
+    <color name="th_text2">#5A6072</color>
+    <color name="th_text3">#9AA0B4</color>
+    <color name="th_border">#14202814</color>
+
+    <color name="th_nav_pill">#263B5BFD</color>
     <color name="th_bubble_user">#3B5BFD</color>
-    <color name="th_bubble_ai">#262A33</color>
+    <color name="th_bubble_ai">#ECEEF4</color>
+
     <color name="white">#FFFFFFFF</color>
     <color name="black">#FF000000</color>
 </resources>
