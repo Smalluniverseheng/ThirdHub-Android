@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_splash">
+
+    <LinearLayout
+        android:id="@+id/splashInner"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/splashLogoCard"
+            android:layout_width="108dp"
+            android:layout_height="108dp"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="18dp"
+            app:cardBackgroundColor="@color/white">
+
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@drawable/brand"
+                android:contentDescription="第三方科技" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            android:id="@+id/splashSlogan"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:fontFamily="serif"
+            android:letterSpacing="0.3"
+            android:text="纵横四海·引领无限"
+            android:textColor="#B7C0FF"
+            android:textSize="24sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/splashBrand"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginBottom="40dp"
+        android:gravity="center"
+        android:letterSpacing="0.4"
+        android:text="第三方科技"
+        android:textColor="#6B7186"
+        android:textSize="12sp" />
+</FrameLayout>
