@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 基底（网页版 --bg-page） -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#0F1117" />
+        </shape>
+    </item>
+    <!-- 左上靛蓝辉光 -->
+    <item android:left="-200dp" android:top="-160dp" android:right="120dp" android:bottom="320dp">
+        <shape android:shape="oval">
+            <gradient android:type="radial" android:gradientRadius="420dp"
+                android:centerColor="#3D6366F1" android:endColor="#006366F1" />
+        </shape>
+    </item>
+    <!-- 右下紫色辉光 -->
+    <item android:left="140dp" android:top="380dp" android:right="-180dp" android:bottom="-160dp">
+        <shape android:shape="oval">
+            <gradient android:type="radial" android:gradientRadius="400dp"
+                android:centerColor="#2E8B5CF6" android:endColor="#008B5CF6" />
+        </shape>
+    </item>
+</layer-list>
