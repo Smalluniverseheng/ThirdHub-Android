@@ -29,12 +29,16 @@ jobs:
       - name: 构建 APK
         run: chmod +x gradlew && ./gradlew assembleRelease --stacktrace
 
+      - name: 读取版本号
+        id: ver
+        run: echo "v=$(grep -oP 'versionName "\K[0-9.]+' app/build.gradle)" >> "$GITHUB_OUTPUT"
+
       - name: 重命名产物
-        run: cp app/build/outputs/apk/release/app-release.apk ThirdHub-Android-v1.8.apk
+        run: cp app/build/outputs/apk/release/app-release.apk "ThirdHub-Android-v${{ steps.ver.outputs.v }}.apk"
 
       - name: 上传 APK 产物
         uses: actions/upload-artifact@v4
         with:
-          name: ThirdHub-Android-v1.8-apk
-          path: ThirdHub-Android-v1.8.apk
+          name: ThirdHub-Android-v${{ steps.ver.outputs.v }}-apk
+          path: ThirdHub-Android-v${{ steps.ver.outputs.v }}.apk
           retention-days: 90
