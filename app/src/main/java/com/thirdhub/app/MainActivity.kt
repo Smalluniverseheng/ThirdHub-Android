@@ -24,7 +24,7 @@ import androidx.webkit.WebViewAssetLoader
 import com.thirdhub.app.util.UpdateChecker
 
 /* 主界面：WebView 承载 ThirdHub
-   v2.0 build 11 起改为「纯本地」架构：
+   v2.1 起继续沿用「纯本地」架构：
    - 直接加载 APK 内置资源（appassets 本地域名），打开即显、与网络状况完全无关；
    - 历史版本注册的 Service Worker 会在首次启动时被注销并清空缓存，杜绝脏缓存白屏；
    - 应用更新由原生更新器负责（后台检查清单 → 下载新 APK → 提示安装）；
