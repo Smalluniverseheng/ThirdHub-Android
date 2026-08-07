@@ -30,6 +30,8 @@ class SplashActivity : AppCompatActivity() {
         val logoCard = findViewById<View>(R.id.splashLogoCard)
         val slogan = findViewById<TextView>(R.id.splashSlogan)
         val brand = findViewById<TextView>(R.id.splashBrand)
+        val version = findViewById<TextView>(R.id.splashVersion)
+        version.text = "v" + BuildConfig.VERSION_NAME
 
         // slogan 渐变文字（与网页版 accent-grad 一致）
         slogan.post {
@@ -59,6 +61,7 @@ class SplashActivity : AppCompatActivity() {
         fadeUp(inner, 0)
         fadeUp(slogan, 300)
         fadeUp(brand, 550)
+        fadeUp(version, 700)
 
         // 点击跳过
         findViewById<View>(android.R.id.content).setOnClickListener { enter() }

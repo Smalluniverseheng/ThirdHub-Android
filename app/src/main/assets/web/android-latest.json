@@ -1,0 +1,9 @@
+{
+  "version": "1.4",
+  "build": 5,
+  "notes": "ThirdHub 安卓版 v1.4 更新公告\n\n1. 对话页全新改版，与 aiBeta 网页版一致：\n   · 顶栏模型胶囊（官方品牌图标 + 当前模型）\n   · 点击模型胶囊弹出可搜索的模型选择列表\n2. OmniHub 式欢迎页：大厂品牌图标 + 问候语 + 今日推荐\n3. 输入条改为胶囊样式，＋号集成密钥/模型设置\n4. 左滑会话抽屉、多会话管理保持不变\n5. 应用内自动更新、后台下载安装",
+  "apks": {
+    "universal": "https://github.com/Smalluniverseheng/ThirdHub-Android/releases/download/v1.4/ThirdHub-Android-v1.4.apk"
+  },
+  "releasePage": "https://github.com/Smalluniverseheng/ThirdHub-Android/releases"
+}

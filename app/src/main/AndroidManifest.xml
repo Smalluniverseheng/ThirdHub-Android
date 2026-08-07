@@ -28,11 +28,6 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden" />
 
-        <activity
-            android:name=".reader.ReaderActivity"
-            android:configChanges="orientation|screenSize"
-            android:exported="false" />
-
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

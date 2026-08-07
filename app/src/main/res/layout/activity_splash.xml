@@ -39,6 +39,17 @@
             android:text="纵横四海·引领无限"
             android:textColor="#B7C0FF"
             android:textSize="24sp" />
+
+        <TextView
+            android:id="@+id/splashVersion"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.12"
+            android:text="v1.8"
+            android:textColor="#565D72"
+            android:textSize="11sp" />
     </LinearLayout>
 
     <TextView
