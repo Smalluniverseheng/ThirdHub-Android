@@ -1,5 +1,5 @@
 /* ===== ThirdHub app.js — 应用入口 / 路由 / 初始化 ===== */
-export const APP_VERSION = '1.8';
+export const APP_VERSION = '2.0';
 
 import { $, $$, icon, toast } from './ui.js';
 import { getSetting, setSetting, on, emit, openDB, kvGet, kvSet } from './store.js';
@@ -52,8 +52,28 @@ function buildChrome(tabIds) {
   currentTab = null;
 }
 
+/* v2.0：慢网/弱网加固 —— 板块模块加载带超时与自动重试，避免请求挂起导致永久转圈 */
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, rej) => setTimeout(() => rej(new Error((label || '模块') + '加载超时')), ms)),
+  ]);
+}
+
+async function loadBoardModule(board, attempt = 0) {
+  try {
+    return await withTimeout(board.load(), 20000, board.name);
+  } catch (e) {
+    if (attempt < 2) {
+      await new Promise((r) => setTimeout(r, 1200));
+      return loadBoardModule(board, attempt + 1);
+    }
+    throw e;
+  }
+}
+
 async function getRenderer(board) {
-  if (!moduleCache[board.id]) moduleCache[board.id] = await board.load();
+  if (!moduleCache[board.id]) moduleCache[board.id] = await loadBoardModule(board);
   const mod = moduleCache[board.id];
   return (page) => mod[board.fn](page, board.arg);
 }
@@ -67,10 +87,21 @@ export async function switchTab(tab, force = false) {
   if (!rendered.has(tab) || force) {
     page.innerHTML = '<div class="loading-row" style="margin-top:60px"><div class="spinner"></div></div>';
     const board = boardById(tab);
-    const render = await getRenderer(board);
-    page.innerHTML = '';
-    await render(page);
-    rendered.add(tab);
+    try {
+      const render = await getRenderer(board);
+      page.innerHTML = '';
+      await render(page);
+      rendered.add(tab);
+    } catch (e) {
+      console.error('板块加载失败', e);
+      page.innerHTML = `<div style="padding:80px 24px;text-align:center;color:var(--tx-3,#888)">
+        <div style="font-size:15px;margin-bottom:16px">「${board.name}」加载失败，请检查网络后重试</div>
+        <button class="btn btn-primary" data-retry type="button" style="padding:10px 28px">重新加载</button>
+      </div>`;
+      const btn = page.querySelector('[data-retry]');
+      if (btn) btn.onclick = () => { rendered.delete(tab); delete moduleCache[tab]; switchTab(tab, true); };
+      return;
+    }
   }
   requestAnimationFrame(() => page.classList.add('active'));
   currentTab = tab;
@@ -140,6 +171,9 @@ async function boot() {
   /* v1.7：开屏动画（非首访且未关闭时展示，不阻塞启动） */
   try { const { maybeSplash } = await import('./modules/splash.js'); maybeSplash(); } catch (e) {}
 
+  /* v1.9：先载入本地缓存的云端定价（离线也可用上次价格估算） */
+  try { const { initPricing } = await import('./ai/ai-pricing.js'); await initPricing(); } catch (e) {}
+
   /* 云端初始化不阻塞启动：慢网环境下最多等 6 秒，其余时间后台继续 */
   const cloudReady = (async () => {
     try { await initCloud(); } catch (e) { console.warn('cloud 初始化失败', e); }
@@ -150,6 +184,9 @@ async function boot() {
     try { const { registerDevice } = await import('./modules/devices.js'); await registerDevice(); } catch (e) {}
     try { const { pullKeysFromCloud } = await import('./modules/keyvault.js'); await pullKeysFromCloud(); } catch (e) {}
     try { const { initSourceSync } = await import('./engine/source-sync.js'); await initSourceSync(); } catch (e) {}
+    /* v1.9：云端模型定价 / 排行榜（管理员后台可维护） */
+    try { const { syncCloudPrices } = await import('./ai/ai-pricing.js'); await syncCloudPrices(); } catch (e) {}
+    try { const { syncCloudRankings } = await import('./ai/ai-rankings.js'); await syncCloudRankings(); } catch (e) {}
   })();
   await Promise.race([cloudReady, new Promise((r) => setTimeout(r, 6000))]);
 
@@ -180,6 +217,7 @@ async function boot() {
   setTimeout(() => checkUpdate().catch(() => {}), 3000);
 
   window.__THIRDHUB__ = { version: APP_VERSION, switchTab, refreshTab, rebuildTabs };
+  window.__TH_READY = true;  /* v2.0：安卓 WebView 看门狗据此判定线上版启动成功 */
   console.log('%cThirdHub v' + APP_VERSION + ' · 第三方科技', 'color:#3b5bfd;font-weight:bold');
 }
 

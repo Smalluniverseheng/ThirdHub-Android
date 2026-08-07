@@ -142,6 +142,21 @@ class MainActivity : AppCompatActivity() {
         webView.addJavascriptInterface(NativeBridge(), "ThirdHubNative")
         webView.loadUrl(ONLINE_URL)
 
+        /* v2.0 启动看门狗：线上版 18 秒内未完成启动（弱网下请求挂起）→ 自动回退内置包，杜绝卡死白屏 */
+        webView.postDelayed({
+            if (!fellBack && !isDestroyed && !isFinishing) {
+                webView.evaluateJavascript(
+                    "(window.__TH_READY === true) || !!(window.__THIRDHUB__ && window.__THIRDHUB__.version)"
+                ) { v ->
+                    if (v != "true" && !fellBack) {
+                        fellBack = true
+                        Log.w(TAG, "线上版启动超时，回退内置包")
+                        webView.loadUrl(LOCAL_URL)
+                    }
+                }
+            }
+        }, 18000)
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 if (webView.canGoBack()) webView.goBack()
