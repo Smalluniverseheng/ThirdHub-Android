@@ -2,6 +2,7 @@ package com.thirdhub.app
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.os.Message
@@ -21,23 +22,17 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.webkit.WebViewAssetLoader
 import com.thirdhub.app.util.UpdateChecker
-import java.net.HttpURLConnection
-import java.net.URL
 
-/* 主界面：WebView 承载 ThirdHub 网页版
-   v2.0 起采用「内置包直答」架构：
-   - 对 https://thirdhub.pages.dev 的页面/静态资源请求，直接用 APK 内置资产秒回，
-     慢网 / 弱网 / 断网都能秒开，且源(origin)不变，登录态与本地数据完全保留；
-   - 后台静默比对线上 version.json，发现新版本时切换为真实线上加载（热更新），
-     线上 18 秒未就绪自动切回内置包直答；
-   - 非页面类请求（Supabase、AI 接口等）始终走真实网络。 */
+/* 主界面：WebView 承载 ThirdHub
+   v2.0 build 11 起改为「纯本地」架构：
+   - 直接加载 APK 内置资源（appassets 本地域名），打开即显、与网络状况完全无关；
+   - 历史版本注册的 Service Worker 会在首次启动时被注销并清空缓存，杜绝脏缓存白屏；
+   - 应用更新由原生更新器负责（后台检查清单 → 下载新 APK → 提示安装）；
+   - Supabase / AI 接口等数据请求正常走网络。 */
 class MainActivity : AppCompatActivity() {
 
     companion object {
-        const val ONLINE_URL = "https://thirdhub.pages.dev/"
         const val LOCAL_URL = "https://appassets.androidplatform.net/assets/web/index.html"
-        const val ONLINE_HOST = "thirdhub.pages.dev"
-        const val VERSION_URL = "https://thirdhub.pages.dev/version.json"
         const val TAG = "ThirdHub"
     }
 
@@ -45,52 +40,11 @@ class MainActivity : AppCompatActivity() {
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private var swPurged = false   /* 每个进程只清理一次旧 Service Worker 缓存 */
 
-    /* true = pages.dev 的静态请求由内置包直答；false = 放行到线上（热更新窗口） */
-    @Volatile private var useBundled = true
-
     private val filePicker =
         registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
             fileCallback?.onReceiveValue((uris ?: emptyList()).toTypedArray())
             fileCallback = null
         }
-
-    private fun mimeFor(path: String): String {
-        val ext = path.substringAfterLast('.', "").lowercase()
-        return when (ext) {
-            "html" -> "text/html"
-            "js", "mjs" -> "text/javascript"
-            "css" -> "text/css"
-            "json", "webmanifest", "map" -> "application/json"
-            "svg" -> "image/svg+xml"
-            "png" -> "image/png"
-            "jpg", "jpeg" -> "image/jpeg"
-            "gif" -> "image/gif"
-            "webp" -> "image/webp"
-            "ico" -> "image/x-icon"
-            "woff" -> "font/woff"
-            "woff2" -> "font/woff2"
-            "mp3" -> "audio/mpeg"
-            "md", "txt" -> "text/plain"
-            else -> "application/octet-stream"
-        }
-    }
-
-    /* 用内置资产应答 pages.dev 的静态请求；资产不存在（如接口路径）则返回 null 走网络 */
-    private fun bundledResponse(request: WebResourceRequest): WebResourceResponse? {
-        val url = request.url
-        if (url.host != ONLINE_HOST) return null
-        val path = url.path ?: "/"
-        val rel = if (path.isEmpty() || path == "/") "index.html" else path.removePrefix("/")
-        if (rel.endsWith("/")) return null
-        return try {
-            val stream = assets.open("web/$rel")
-            val textLike = rel.substringAfterLast('.', "").lowercase() in
-                setOf("html", "js", "mjs", "css", "json", "svg", "md", "txt", "webmanifest", "map")
-            WebResourceResponse(mimeFor(rel), if (textLike) "utf-8" else null, stream)
-        } catch (_: Exception) {
-            null
-        }
-    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -123,18 +77,16 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
                 view: WebView, request: WebResourceRequest
-            ): WebResourceResponse? {
-                assetLoader.shouldInterceptRequest(request.url)?.let { return it }
-                if (useBundled) bundledResponse(request)?.let { return it }
-                return null
-            }
+            ): WebResourceResponse? = assetLoader.shouldInterceptRequest(request.url)
 
-            override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+            override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                /* 旧版本可能在 WebView 里注册过 Service Worker 并缓存了损坏/过期文件，
-                   且 SW 的请求不经过内置包拦截。首次加载时注销 SW 并清空其缓存，然后重载，
-                   之后所有请求都由内置包直答，彻底杜绝脏缓存导致的白屏 */
-                if (!swPurged && url != null && url.startsWith("https://$ONLINE_HOST")) {
+                /* 旧版本可能在 WebView 里注册过 Service Worker 并缓存了过期/损坏文件，
+                   且 SW 的请求不经过本地资产拦截。首次加载时注销全部 SW 并清空其缓存，
+                   清理干净后重载一次，彻底杜绝脏缓存导致的白屏 */
+                if (!swPurged && url != null &&
+                    (url.startsWith("https://appassets.androidplatform.net/") || url.startsWith("https://thirdhub.pages.dev"))
+                ) {
                     swPurged = true
                     view.evaluateJavascript(
                         "(async()=>{let p=false;try{if('serviceWorker' in navigator){const rs=await navigator.serviceWorker.getRegistrations();if(rs.length)p=true;for(const r of rs){await r.unregister();}}if(window.caches){const ks=await caches.keys();if(ks.length)p=true;for(const k of ks){await caches.delete(k);}}}catch(e){}return p?'purged':'clean'})()"
@@ -144,7 +96,7 @@ class MainActivity : AppCompatActivity() {
 
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url.toString()
-                if (url.startsWith("https://thirdhub.pages.dev") || url.startsWith("https://appassets.androidplatform.net/")) return false
+                if (url.startsWith("https://appassets.androidplatform.net/") || url.startsWith("https://thirdhub.pages.dev")) return false
                 // 外链交给系统浏览器
                 return try {
                     startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -153,19 +105,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
-                if (!request.isForMainFrame) return
-                val u = request.url.toString()
-                if (!useBundled && u.startsWith("https://$ONLINE_HOST")) {
-                    // 热更新的线上版加载失败 → 切回内置包直答
-                    Log.w(TAG, "线上版加载失败，切回内置包: ${error.description}")
-                    useBundled = true
-                    view.loadUrl(ONLINE_URL)
-                } else if (useBundled && u.startsWith("https://$ONLINE_HOST")) {
-                    // 内置资产缺失导致的失败 → 终极兜底：本地域名加载
-                    Log.w(TAG, "内置直答失败，回退本地域名: ${error.description}")
-                    useBundled = true
-                    view.loadUrl(LOCAL_URL)
-                }
+                if (request.isForMainFrame) Log.e(TAG, "页面加载失败: ${error.description}")
             }
         }
 
@@ -208,19 +148,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.addJavascriptInterface(NativeBridge(), "ThirdHubNative")
-        webView.loadUrl(ONLINE_URL)
+        webView.loadUrl(LOCAL_URL)
 
-        /* 后台静默检查线上版本：发现新版则切换到真实线上加载（热更新） */
+        /* 启动时静默检查应用更新（发现新 APK 弹窗提示，后台下载） */
         Thread {
-            val newer = onlineHasNewer()
-            if (newer && !isDestroyed && !isFinishing) {
-                runOnUiThread {
-                    Log.i(TAG, "发现线上新版本，切换热更新")
-                    useBundled = false
-                    webView.loadUrl(ONLINE_URL)
-                    armOnlineWatchdog()
-                }
-            }
+            try {
+                runOnUiThread { UpdateChecker.checkAndPrompt(this@MainActivity, false) }
+            } catch (_: Exception) {}
         }.start()
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -232,38 +166,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
-    }
-
-    /* 拉取线上 version.json（原生直连，不经过 WebView 拦截），版本号不同则视为有新版 */
-    private fun onlineHasNewer(): Boolean {
-        return try {
-            val conn = URL("$VERSION_URL?t=" + System.currentTimeMillis()).openConnection() as HttpURLConnection
-            conn.connectTimeout = 5000
-            conn.readTimeout = 5000
-            val body = conn.inputStream.bufferedReader().use { it.readText() }
-            conn.disconnect()
-            val v = Regex("\"version\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
-            v != null && v != BuildConfig.VERSION_NAME
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    /* 热更新看门狗：线上版 18 秒内未完成启动（弱网请求挂起）→ 切回内置包直答 */
-    private fun armOnlineWatchdog() {
-        webView.postDelayed({
-            if (!useBundled && !isDestroyed && !isFinishing) {
-                webView.evaluateJavascript(
-                    "(window.__TH_READY === true) || !!(window.__THIRDHUB__ && window.__THIRDHUB__.version)"
-                ) { v ->
-                    if (v != "true" && !useBundled) {
-                        Log.w(TAG, "线上版启动超时，切回内置包")
-                        useBundled = true
-                        webView.loadUrl(ONLINE_URL)
-                    }
-                }
-            }
-        }, 18000)
     }
 
     inner class NativeBridge {
