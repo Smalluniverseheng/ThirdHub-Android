@@ -242,7 +242,7 @@ class MainActivity : AppCompatActivity() {
             conn.readTimeout = 5000
             val body = conn.inputStream.bufferedReader().use { it.readText() }
             conn.disconnect()
-            val v = Regex("\"version\"\s*:\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
+            val v = Regex("\"version\"\\s*:\\s*\"([^\"]+)\"").find(body)?.groupValues?.get(1)
             v != null && v != BuildConfig.VERSION_NAME
         } catch (_: Exception) {
             false
