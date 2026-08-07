@@ -167,6 +167,15 @@ class MainActivity : AppCompatActivity() {
         fun versionCode(): Int = BuildConfig.VERSION_CODE
 
         @JavascriptInterface
+        fun getDeviceModel(): String {
+            val m = android.os.Build.MODEL ?: ""
+            val mf = android.os.Build.MANUFACTURER ?: ""
+            val name = if (m.isNotBlank() && mf.isNotBlank() && !m.startsWith(mf, ignoreCase = true))
+                mf.replaceFirstChar { it.uppercase() } + " " + m else m.ifBlank { mf }
+            return name.ifBlank { "Android 设备" }
+        }
+
+        @JavascriptInterface
         fun checkAppUpdate(manual: Boolean) {
             runOnUiThread { UpdateChecker.checkAndPrompt(this@MainActivity, manual) }
         }
