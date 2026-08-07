@@ -84,7 +84,7 @@ class MainActivity : AppCompatActivity() {
                 fileCallback = cb
                 val mime = params.acceptTypes.firstOrNull()?.takeIf { it.isNotBlank() } ?: "*/*"
                 return try {
-                    filePicker.launch(mime)
+                    filePicker.launch(arrayOf(mime))
                     true
                 } catch (_: Exception) {
                     fileCallback = null
