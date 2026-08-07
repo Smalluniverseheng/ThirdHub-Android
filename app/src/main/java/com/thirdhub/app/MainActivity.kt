@@ -43,6 +43,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private var fileCallback: ValueCallback<Array<Uri>>? = null
+    private var swPurged = false   /* 每个进程只清理一次旧 Service Worker 缓存 */
 
     /* true = pages.dev 的静态请求由内置包直答；false = 放行到线上（热更新窗口） */
     @Volatile private var useBundled = true
@@ -126,6 +127,19 @@ class MainActivity : AppCompatActivity() {
                 assetLoader.shouldInterceptRequest(request.url)?.let { return it }
                 if (useBundled) bundledResponse(request)?.let { return it }
                 return null
+            }
+
+            override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                /* 旧版本可能在 WebView 里注册过 Service Worker 并缓存了损坏/过期文件，
+                   且 SW 的请求不经过内置包拦截。首次加载时注销 SW 并清空其缓存，然后重载，
+                   之后所有请求都由内置包直答，彻底杜绝脏缓存导致的白屏 */
+                if (!swPurged && url != null && url.startsWith("https://$ONLINE_HOST")) {
+                    swPurged = true
+                    view.evaluateJavascript(
+                        "(async()=>{let p=false;try{if('serviceWorker' in navigator){const rs=await navigator.serviceWorker.getRegistrations();if(rs.length)p=true;for(const r of rs){await r.unregister();}}if(window.caches){const ks=await caches.keys();if(ks.length)p=true;for(const k of ks){await caches.delete(k);}}}catch(e){}return p?'purged':'clean'})()"
+                    ) { result -> if (result == "\"purged\"") view.reload() }
+                }
             }
 
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
