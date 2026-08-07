@@ -23,6 +23,7 @@ import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.webkit.WebViewAssetLoader
 import com.thirdhub.app.util.UpdateChecker
 
 /* 主界面：WebView 承载 ThirdHub 网页版
@@ -33,7 +34,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val ONLINE_URL = "https://thirdhub.pages.dev/"
-        const val LOCAL_URL = "file:///android_asset/web/index.html"
+        const val LOCAL_URL = "https://appassets.androidplatform.net/assets/web/index.html"
         const val TAG = "ThirdHub"
     }
 
@@ -61,7 +62,7 @@ class MainActivity : AppCompatActivity() {
             domStorageEnabled = true
             databaseEnabled = true
             mediaPlaybackRequiresUserGesture = false
-            allowFileAccess = true
+            allowFileAccess = false
             allowContentAccess = false
             cacheMode = WebSettings.LOAD_DEFAULT
             mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
@@ -71,10 +72,18 @@ class MainActivity : AppCompatActivity() {
         }
         WebView.setWebContentsDebuggingEnabled(false)
 
+        val assetLoader = WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .build()
+
         webView.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(
+                view: WebView, request: WebResourceRequest
+            ): android.webkit.WebResourceResponse? = assetLoader.shouldInterceptRequest(request.url)
+
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val url = request.url.toString()
-                if (url.startsWith("https://thirdhub.pages.dev") || url.startsWith("file:///android_asset/")) return false
+                if (url.startsWith("https://thirdhub.pages.dev") || url.startsWith("https://appassets.androidplatform.net/")) return false
                 // 外链交给系统浏览器
                 return try {
                     startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
